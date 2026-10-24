@@ -3,7 +3,7 @@
 SaMIGEN - Modified Version
 - No log file saving
 - Saves only uid:pass to FTC.txt
-- Account name format: FTC<random>
+- Account name format: <CustomPrefix>-<random>
 - Beautiful animated terminal design
 """
 
@@ -139,7 +139,7 @@ def banner():
             time.sleep(0.05)
         print()
     typewriter("            ⚡ Free Fire Account Generator ⚡", MAGENTA, 0.02)
-    typewriter("                 ── FTC Edition ──", YELLOW, 0.02)
+    typewriter("                 ── Custom Prefix Edition ──", YELLOW, 0.02)
     print()
     with print_lock:
         print(f"{DIM}{'═' * 62}{RST}")
@@ -381,10 +381,10 @@ def get_token_legacy(session, uid, password, ua):
     return at, oid
 
 
-def generate_nickname():
-    """Generate nickname: FTC + random number"""
+def generate_nickname(prefix="FTC"):
+    """Generate nickname based on user input + random number"""
     number = random.randint(100000, 999999)
-    return f"FTC{number}"
+    return f"{prefix}-{number}"
 
 
 def send_major_register(session, name, access_token, open_id, ua):
@@ -556,7 +556,7 @@ def save_uid_pass(uid, password):
 # ══════════════════════════════════════════════════════════════════════════════
 #  WORKER
 # ══════════════════════════════════════════════════════════════════════════════
-def create_one_account(worker_id: int, total: int, counters: dict):
+def create_one_account(worker_id: int, total: int, counters: dict, custom_name: str):
     while not stop_flag.is_set():
         session = None
         try:
@@ -590,7 +590,7 @@ def create_one_account(worker_id: int, total: int, counters: dict):
             nickname = "Unknown"
             account_id = None
             for reg_attempt in range(1, 11):
-                nickname = generate_nickname()
+                nickname = generate_nickname(custom_name)
                 try:
                     spinner(f"Registering nickname {nickname} (try {reg_attempt}/10)...", 0.4)
                     reg_resp = send_major_register(session, nickname,
@@ -670,13 +670,19 @@ def main():
     with print_lock:
         print(f"  {CYAN}┌─[ {BOLD}⚙  CONFIGURATION{RST}{CYAN} ]{'─' * 38}┐{RST}")
     total   = prompt_int("🔢 Accounts to generate : ", default=10, min_v=1)
+    
+    # Prompt for Custom Prefix
+    custom_name = input(f"  {CYAN}🏷️  Enter account prefix (e.g., xx): {RST}").strip()
+    if not custom_name:
+        custom_name = "FTC" # Default if left empty
+        
     threads = prompt_int("🧵 Worker threads       : ", default=5,  min_v=1, max_v=30)
     with print_lock:
         print(f"  {CYAN}└{'─' * 58}┘{RST}")
     print()
 
     log_info(f"Output file : {YELLOW}{OUTPUT_FILE}{RST}")
-    log_info(f"Account name: {YELLOW}FTC<random>{RST}")
+    log_info(f"Account name: {YELLOW}{custom_name}-<random>{RST}")
     log_info(f"Mode        : {YELLOW}UID:PASS only{RST}")
     print()
 
@@ -692,7 +698,7 @@ def main():
     try:
         with ThreadPoolExecutor(max_workers=threads) as executor:
             futures = [
-                executor.submit(create_one_account, i, total, counters)
+                executor.submit(create_one_account, i, total, counters, custom_name)
                 for i in range(1, threads + 1)
             ]
             while counters["success"] < total:
