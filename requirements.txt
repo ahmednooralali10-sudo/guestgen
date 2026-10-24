@@ -1,6 +1,0 @@
-flask
-requests
-pycryptodome
-colorama
-gunicorn
-urllib3
