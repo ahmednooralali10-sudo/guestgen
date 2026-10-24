@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-SaMIGEN - Modified Version
+XOREPY - Modified Version
 - No log file saving
 - Saves only uid:pass to FTC.txt
-- Account name format: <CustomPrefix>-<random>
-- Beautiful animated terminal design
+- Password format: xorepy_<random>
+- Account name format: <random_number>-<custom_name>
 """
 
 import os
@@ -125,12 +125,12 @@ def banner():
     """Show animated banner"""
     clear_screen()
     art = [
-        "  █████╗ ██████╗ ██╗██╗   ██╗ █████╗ ███╗   ██╗  ",
-        " ██╔══██╗██╔══██╗██║╚██╗ ██╔╝██╔══██╗████╗  ██║  ",
-        " ███████║██████╔╝██║ ╚████╔╝ ███████║██╔██╗ ██║  ",
-        " ██╔══██║██╔══██╗██║  ╚██╔╝  ██╔══██║██║╚██╗██║  ",
-        " ██║  ██║██║  ██║██║   ██║   ██║  ██║██║ ╚████║  ",
-        " ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝  ",
+        " ██╗  ██╗ ██████╗ ██████╗ ███████╗██████╗ ██╗   ██╗",
+        " ╚██╗██╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗╚██╗ ██╔╝",
+        "  ╚███╔╝ ██║   ██║██████╔╝█████╗  ██████╔╝ ╚████╔╝ ",
+        "  ██╔██╗ ██║   ██║██╔══██╗██╔══╝  ██╔═══╝   ╚██╔╝  ",
+        " ██╔╝ ██╗╚██████╔╝██║  ██║███████╗██║        ██║   ",
+        " ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝        ╚═╝   ",
     ]
     with print_lock:
         for line in art:
@@ -139,7 +139,7 @@ def banner():
             time.sleep(0.05)
         print()
     typewriter("            ⚡ Free Fire Account Generator ⚡", MAGENTA, 0.02)
-    typewriter("                 ── Custom Prefix Edition ──", YELLOW, 0.02)
+    typewriter("                 ── XOREPY Edition ──", YELLOW, 0.02)
     print()
     with print_lock:
         print(f"{DIM}{'═' * 62}{RST}")
@@ -381,10 +381,10 @@ def get_token_legacy(session, uid, password, ua):
     return at, oid
 
 
-def generate_nickname(prefix="FTC"):
-    """Generate nickname based on user input + random number"""
-    number = random.randint(100000, 999999)
-    return f"{prefix}-{number}"
+def generate_nickname(custom_name):
+    """Generate nickname: <random_number>-<custom_name>"""
+    number = random.randint(100, 999) # 3-digit random number at the start
+    return f"{number}-{custom_name}"
 
 
 def send_major_register(session, name, access_token, open_id, ua):
@@ -572,9 +572,9 @@ def create_one_account(worker_id: int, total: int, counters: dict, custom_name: 
                 print(f"  {MAGENTA}▶ Worker #{worker_id} — new account{RST}")
                 print(f"  {DIM}{'─' * 58}{RST}")
 
-            # Password
+            # Password (Starts with xorepy_)
             random_suffix = hashlib.sha256(os.urandom(16)).hexdigest()[:12].upper()
-            password = f"FTC_{random_suffix}"
+            password = f"xorepy_{random_suffix}"
 
             # STEP 1
             spinner(f"Registering guest...", 0.5)
@@ -589,10 +589,10 @@ def create_one_account(worker_id: int, total: int, counters: dict, custom_name: 
             # STEP 3 - MajorRegister with nickname retry
             nickname = "Unknown"
             account_id = None
-            for reg_attempt in range(1, 11):
+            for reg_attempt in range(1, 21): # 20 attempts
                 nickname = generate_nickname(custom_name)
                 try:
-                    spinner(f"Registering nickname {nickname} (try {reg_attempt}/10)...", 0.4)
+                    spinner(f"Registering nickname {nickname} (try {reg_attempt}/20)...", 0.4)
                     reg_resp = send_major_register(session, nickname,
                                                    access_token, open_id, unity_ua)
                     account_id = reg_resp.get(3)
@@ -601,11 +601,11 @@ def create_one_account(worker_id: int, total: int, counters: dict, custom_name: 
                         log_ok(f"Acc ID   : {CYAN}{account_id}{RST}")
                         break
                 except Exception as e:
-                    if reg_attempt < 10:
+                    if reg_attempt < 20:
                         time.sleep(0.3)
 
             if not account_id:
-                raise RuntimeError("MajorRegister failed")
+                raise RuntimeError("MajorRegister failed (Name might be taken)")
 
             # STEP 4
             spinner(f"Choosing newbie...", 0.4)
@@ -671,10 +671,10 @@ def main():
         print(f"  {CYAN}┌─[ {BOLD}⚙  CONFIGURATION{RST}{CYAN} ]{'─' * 38}┐{RST}")
     total   = prompt_int("🔢 Accounts to generate : ", default=10, min_v=1)
     
-    # Prompt for Custom Prefix
-    custom_name = input(f"  {CYAN}🏷️  Enter account prefix (e.g., xx): {RST}").strip()
+    # Prompt for Custom Name
+    custom_name = input(f"  {CYAN}🏷️  Enter the name (e.g., name): {RST}").strip()
     if not custom_name:
-        custom_name = "FTC" # Default if left empty
+        custom_name = "player" # Default if left empty
         
     threads = prompt_int("🧵 Worker threads       : ", default=5,  min_v=1, max_v=30)
     with print_lock:
@@ -682,8 +682,8 @@ def main():
     print()
 
     log_info(f"Output file : {YELLOW}{OUTPUT_FILE}{RST}")
-    log_info(f"Account name: {YELLOW}{custom_name}-<random>{RST}")
-    log_info(f"Mode        : {YELLOW}UID:PASS only{RST}")
+    log_info(f"Name format : {YELLOW}xxx-{custom_name}{RST}")
+    log_info(f"Pass format : {YELLOW}xorepy_xxxxx{RST}")
     print()
 
     input(f"  {MAGENTA}▶ Press ENTER to start generation...{RST} ")
