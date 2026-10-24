@@ -16,7 +16,7 @@ import signal
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional, List, Any
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template_string, request, jsonify, send_file
 
 app = Flask(__name__)
 
@@ -64,7 +64,7 @@ class AppState:
 
 state = AppState()
 
-# --- الحل النهائي: محرك الأمان مكتوب صراحة لتجنب أخطاء zlib و exec نهائياً ---
+# محرك الأمان المباشر
 class SecurityEngine:
     @staticmethod
     def generate_ultra_secure_password(length: int = 12) -> str:
@@ -262,10 +262,111 @@ class AccountGenerator:
             except Exception: pass
         return None
 
+# واجهة المستخدم مدمجة بالكامل هنا لتفادي أي أخطاء مفقودة
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>Rixor Account Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-dark text-light">
+    <div class="container mt-5">
+        <h2 class="text-center mb-4 text-info">Rixor Generator Web Panel</h2>
+        <div class="card bg-secondary text-light p-4 shadow">
+            <div class="mb-3">
+                <label class="form-label">السيرفر (Server):</label>
+                <select id="region" class="form-select">
+                    <option value="BD">BD (Bangladesh)</option>
+                    <option value="IND">IND (India)</option>
+                    <option value="PK">PK (Pakistan)</option>
+                    <option value="SG">SG (Singapore)</option>
+                    <option value="ID">ID (Indonesia)</option>
+                    <option value="ME" selected>ME (Middle East)</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">بادئة الاسم (Prefix):</label>
+                <input type="text" id="prefix" class="form-control" value="Rixor">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">العدد المطلوب:</label>
+                <input type="number" id="target" class="form-control" value="5">
+            </div>
+            <button onclick="startGeneration()" class="btn btn-info w-100 fw-bold">بدء التوليد</button>
+        </div>
+
+        <div class="mt-4">
+            <h4>الحسابات المتولدة (<span id="count">0</span>):</h4>
+            <a href="/download" class="btn btn-success btn-sm mb-3">تحميل ملف الحسابات (JSON)</a>
+            <div class="table-responsive">
+                <table class="table table-dark table-striped">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>معرف الحساب (Account ID)</th>
+                            <th>UID</th>
+                            <th>كلمة المرور</th>
+                            <th>السيرفر</th>
+                        </tr>
+                    </thead>
+                    <tbody id="accountsTable">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let interval;
+
+        function startGeneration() {
+            const region = document.getElementById('region').value;
+            const prefix = document.getElementById('prefix').value;
+            const target = document.getElementById('target').value;
+
+            fetch('/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({region, prefix, target})
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert('تم بدء عملية التوليد في الخلفية!');
+                if(interval) clearInterval(interval);
+                interval = setInterval(fetchStatus, 2000);
+            });
+        }
+
+        function fetchStatus() {
+            fetch('/status')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('count').innerText = data.success_count;
+                let tbody = document.getElementById('accountsTable');
+                tbody.innerHTML = '';
+                data.accounts.forEach(acc => {
+                    let row = `<tr>
+                        <td>${acc.name}</td>
+                        <td>${acc.account_id}</td>
+                        <td>${acc.uid}</td>
+                        <td><code>${acc.password}</code></td>
+                        <td>${acc.region}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
+"""
+
 # --- Flask Web Routes ---
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template_string(HTML_TEMPLATE)
 
 @app.route('/generate', methods=['POST'])
 def generate():
