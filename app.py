@@ -29,16 +29,10 @@ import requests
 import urllib3
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
-from colorama import Fore, Style
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class Config:
-    C_ = Fore.CYAN
-    W_ = Fore.WHITE
-    B_ = Style.BRIGHT
-    S_ = Style.RESET_ALL
-
     ACCOUNTS_FILE = "rixor.json"
     API_HEX_KEY = "2ee44819e9b4598845141067b281621874d0d5d7af9d8f7e00c1e54715b7d1e3"
     API_SECRET_KEY = "2ee44819e9b4598845141067b281621874d0d5d7af9d8f7e00c1e54715b7d1e3"
@@ -57,14 +51,20 @@ class AppState:
         self.exit_flag = False
         self.success_count = 0
         self.lock = threading.Lock()
-        self.print_lock = threading.Lock()
         self.ip_counter = 0
         self.ip_lock = threading.Lock()
         self.proxy_list: List[str] = []
+        self.logs: List[str] = []
 
 state = AppState()
 
-# محرك الأمان المباشر
+def add_log(msg: str):
+    with state.lock:
+        timestamp = datetime.now().strftime("%I:%M:%S %p")
+        state.logs.append(f"[{timestamp}] {msg}")
+        if len(state.logs) > 200:
+            state.logs.pop(0)
+
 class SecurityEngine:
     @staticmethod
     def generate_ultra_secure_password(length: int = 12) -> str:
@@ -198,7 +198,7 @@ class AccountGenerator:
         except Exception: pass
 
     @classmethod
-    def execute_creation(cls, region: str, prefix: str) -> Optional[Dict[str, Any]]:
+    def execute_creation(cls, region: str, prefix: str, current_num: int, target: int) -> Optional[Dict[str, Any]]:
         for _ in range(5):
             if state.exit_flag: return None
             try:
@@ -258,70 +258,130 @@ class AccountGenerator:
                         "name": name, "region": region, "date_created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     }
                     cls.save_to_file(account_record)
+                    add_log(f"[+] ACCOUNT {current_count_display(current_num)} / {target} SUCCESS -> Name: {name} | ID: {login_data['account_id']} | UID: {uid} | Region: {region}")
                     return account_record
-            except Exception: pass
+            except Exception as e:
+                pass
         return None
 
-# واجهة المستخدم مدمجة بالكامل هنا لتفادي أي أخطاء مفقودة
-HTML_TEMPLATE = """
+def current_count_display(n):
+    return n
+
+# تيرمنال ويب حقيقي بتصميم أسود وأخضر/أصفر
+TERMINAL_HTML = """
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>Rixor Account Generator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Rixor PRO V2 Terminal</title>
+    <style>
+        body {
+            background-color: #000000;
+            color: #00ff66;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            border: 1px solid #00ff66;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.3);
+            border-radius: 5px;
+        }
+        h2 {
+            text-align: center;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            color: #ffff00;
+        }
+        select, input {
+            background: #111;
+            color: #00ff66;
+            border: 1px solid #00ff66;
+            padding: 5px 10px;
+            font-family: monospace;
+            width: 250px;
+        }
+        button {
+            background: #00ff66;
+            color: #000;
+            border: none;
+            padding: 8px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        button:hover {
+            background: #00ffff;
+        }
+        #terminal-screen {
+            background: #050505;
+            border: 1px dashed #00ff66;
+            height: 400px;
+            overflow-y: scroll;
+            padding: 10px;
+            margin-top: 20px;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .actions {
+            margin-top: 15px;
+        }
+        a.btn {
+            color: #000;
+            background: #ffff00;
+            padding: 5px 15px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+        }
+    </style>
 </head>
-<body class="bg-dark text-light">
-    <div class="container mt-5">
-        <h2 class="text-center mb-4 text-info">Rixor Generator Web Panel</h2>
-        <div class="card bg-secondary text-light p-4 shadow">
-            <div class="mb-3">
-                <label class="form-label">السيرفر (Server):</label>
-                <select id="region" class="form-select">
-                    <option value="BD">BD (Bangladesh)</option>
-                    <option value="IND">IND (India)</option>
-                    <option value="PK">PK (Pakistan)</option>
-                    <option value="SG">SG (Singapore)</option>
-                    <option value="ID">ID (Indonesia)</option>
-                    <option value="ME" selected>ME (Middle East)</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">بادئة الاسم (Prefix):</label>
-                <input type="text" id="prefix" class="form-control" value="Rixor">
-            </div>
-            <div class="mb-3">
-                <label class="form-label">العدد المطلوب:</label>
-                <input type="number" id="target" class="form-control" value="5">
-            </div>
-            <button onclick="startGeneration()" class="btn btn-info w-100 fw-bold">بدء التوليد</button>
+<body>
+    <div class="container">
+        <h2>██████╗ ██╗██████╗ ██████╗ <br>RIXOR PRO V2 TERMINAL PANEL</h2>
+        <div class="form-group">
+            <label>>> Server (1-6):</label>
+            <select id="region">
+                <option value="ME">ME (Middle East)</option>
+                <option value="BD">BD (Bangladesh)</option>
+                <option value="IND">IND (India)</option>
+                <option value="PK">PK (Pakistan)</option>
+                <option value="SG">SG (Singapore)</option>
+                <option value="ID">ID (Indonesia)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>>> Name Prefix:</label>
+            <input type="text" id="prefix" value="Rixor">
+        </div>
+        <div class="form-group">
+            <label>>> Target Amount:</label>
+            <input type="number" id="target" value="10">
+        </div>
+        <button onclick="startGen()">[ ENTER ] START ENGINE</button>
+        
+        <div class="actions">
+            <a href="/download" class="btn" target="_blank">[ DOWNLOAD rixor.json ]</a>
         </div>
 
-        <div class="mt-4">
-            <h4>الحسابات المتولدة (<span id="count">0</span>):</h4>
-            <a href="/download" class="btn btn-success btn-sm mb-3">تحميل ملف الحسابات (JSON)</a>
-            <div class="table-responsive">
-                <table class="table table-dark table-striped">
-                    <thead>
-                        <tr>
-                            <th>الاسم</th>
-                            <th>معرف الحساب (Account ID)</th>
-                            <th>UID</th>
-                            <th>كلمة المرور</th>
-                            <th>السيرفر</th>
-                        </tr>
-                    </thead>
-                    <tbody id="accountsTable">
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <div id="terminal-screen">SYSTEM READY... Waiting for command.\n</div>
     </div>
 
     <script>
-        let interval;
+        let logInterval;
 
-        function startGeneration() {
+        function startGen() {
             const region = document.getElementById('region').value;
             const prefix = document.getElementById('prefix').value;
             const target = document.getElementById('target').value;
@@ -333,29 +393,18 @@ HTML_TEMPLATE = """
             })
             .then(res => res.json())
             .then(data => {
-                alert('تم بدء عملية التوليد في الخلفية!');
-                if(interval) clearInterval(interval);
-                interval = setInterval(fetchStatus, 2000);
+                if(logInterval) clearInterval(logInterval);
+                logInterval = setInterval(fetchLogs, 1000);
             });
         }
 
-        function fetchStatus() {
-            fetch('/status')
+        function fetchLogs() {
+            fetch('/logs')
             .then(res => res.json())
             .then(data => {
-                document.getElementById('count').innerText = data.success_count;
-                let tbody = document.getElementById('accountsTable');
-                tbody.innerHTML = '';
-                data.accounts.forEach(acc => {
-                    let row = `<tr>
-                        <td>${acc.name}</td>
-                        <td>${acc.account_id}</td>
-                        <td>${acc.uid}</td>
-                        <td><code>${acc.password}</code></td>
-                        <td>${acc.region}</td>
-                    </tr>`;
-                    tbody.innerHTML += row;
-                });
+                const screen = document.getElementById('terminal-screen');
+                screen.innerText = data.logs.join('\\n');
+                screen.scrollTop = screen.scrollHeight;
             });
         }
     </script>
@@ -363,10 +412,9 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- Flask Web Routes ---
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    return render_template_string(TERMINAL_HTML)
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -374,13 +422,18 @@ def generate():
     region = data.get('region', 'ME')
     prefix = data.get('prefix', 'Rixor')
     try:
-        target = int(data.get('target', 1))
+        target = int(data.get('target', 5))
     except ValueError:
-        target = 1
+        target = 5
 
     state.exit_flag = False
     state.success_count = 0
-    
+    with state.lock:
+        state.logs.clear()
+
+    add_log(f"INITIALIZING ENGINE WITH 20 THREADS FOR {region} SERVER...")
+    add_log(f"Target Accounts: {target} | Prefix: {prefix}")
+
     if os.path.exists(Config.ACCOUNTS_FILE):
         try:
             os.remove(Config.ACCOUNTS_FILE)
@@ -390,27 +443,30 @@ def generate():
     def background_task():
         threads_count = min(target, 20)
         with ThreadPoolExecutor(max_workers=threads_count) as executor:
-            for _ in range(target):
-                if state.exit_flag or state.success_count >= target:
+            futures = []
+            for i in range(target):
+                if state.exit_flag:
                     break
-                executor.submit(AccountGenerator.execute_creation, region, prefix)
-        
-    threading.Thread(target=background_task).start()
-    return jsonify({"status": "started", "target": target})
+                future = executor.submit(AccountGenerator.execute_creation, region, prefix, i+1, target)
+                futures.append(future)
+            
+            for f in futures:
+                try:
+                    res = f.result()
+                    if res:
+                        with state.lock:
+                            state.success_count += 1
+                except:
+                    pass
+        add_log("=== Generation Summary Report Completed ===")
 
-@app.route('/status')
-def status():
-    accounts = []
-    if os.path.exists(Config.ACCOUNTS_FILE):
-        try:
-            with open(Config.ACCOUNTS_FILE, 'r', encoding='utf-8') as f:
-                accounts = json.load(f)
-        except:
-            pass
-    return jsonify({
-        "success_count": len(accounts),
-        "accounts": accounts
-    })
+    threading.Thread(target=background_task).start()
+    return jsonify({"status": "started"})
+
+@app.route('/logs')
+def logs():
+    with state.lock:
+        return jsonify({"logs": state.logs})
 
 @app.route('/download')
 def download():
